@@ -3,50 +3,76 @@
  * Requires: jQuery
  * Exports: TimeLineWidget
  */
-(function ($, exports) {
-
+(function ($, can, exports) {
+  
   /**
-   * Model for tweets
-   * @param  {String} user time line
-   * @return {jQuery.deferred} Deferred to attach callbacks
+   * Model for getting the tweets
+   * @type {can.Model}
    */
-  var getTweets = function (user) {
-    // Get the tweets from the server
-    return $.ajax({
-      url: '/api/tweets/' + user,   // server endpoint to get the tweets 
-      contentType: 'json'           // tells jQuery that we expect a json
-    });  
-  }
+  var Tweets = can.Model({
+    findOne: '/api/tweets/{id}'
+  },{});
 
   /**
    * Controller for displaying tweets base on a user time line
    * @param {jQuery} container where the widget will display
    * @param {Object} options fit the widget
    */
-  exports.TimeLineWidget = function (container, options) {
-    
-    /**
-     * Inner representation of the last tweets, used by the api
-     * @type {Array}
-     */
-    var self = this;   
-    self.tweets = [];
+  exports.TimeLineWidget = can.Control({
+    init: function (element, options) {
+
+      /**
+       * Inner representation of the last tweets, used by the api
+       * @type {Array}
+       */
+      this.user = element.find('#user');
+      this.button = element.find('.button');
+      this.tweetBox = element.find('.content');
+      this.notification = $('<div class="notification">Loading...</div>');
+    },
 
     /**
-     * Private variables
+     * Handler for retrieving the tweets
+     * @param  {jQuery} el the target element
+     * @param  {jQuery.event} event generated
      */
-    var user = container.find('#user'),
-        button = container.find('.button'),
-        tweetBox = container.find('.content'),
-        notification = $('<div class="notification">Loading...</div>');
+    '.button click': function (el, event) {
+      var self = this;
+
+      // Get the user that we want the timeline
+      var userName = $.trim(this.user.val());
+
+      // Dont do nothing if there's not a user defined
+      if (!userName) return false;
+
+      // Shows the loading indicator
+      this.element.append(this.notification);
+
+      // Fetch the data
+      Tweets.findOne({id: userName}, function (model) {
+        self.tweets = model.attr();
+        self.renderTweets(self.tweets);
+
+      // error callback
+      }).fail(function (jqXHR, textStatus) {
+       console.log(textStatus);
+       self.tweetBox.html('Something went wrong, please try again');
+
+      // always callback
+      }).always(function () {
+       self.notification.detach();
+      });
+    },
 
     /**
      * Renders tweets inside the box
      * @param  {Array} tweets 
      */
-    var renderTweets = function (tweets) {
+    renderTweets: function (tweets) {
+      var self = this;
+
       // clean the box
-      tweetBox.empty();
+      this.tweetBox.empty();
 
       // if error show the message
       var error = tweets.error ? tweets.error :
@@ -56,73 +82,38 @@
         this.tweetBox.append(error);
         return;
       }
-      
+
       // if no tweets, show a message
       if (tweets.length === 0) {
-        tweetBox.append('No tweets for this user yet');
+        this.tweetBox.append('No tweets for this user yet');
       }
 
       // Render each tweet
       $.each(tweets, function (index, tweet) {
-        tweetBox.append(renderTweet(tweet));
-      })
-    };
+        self.tweetBox.append(self.renderTweet(tweet));
+      });
+    },
 
     /**
      * Generates the HTML for a single tweet
      * @param  {Object} tweet
      * @return {String} HTML for a single tweet
      */
-    var renderTweet = function (tweet) {
+    renderTweet: function (tweet) {
       return '<div class="tweet tweet-' + tweet.id + '">' +
         '<img  " src="' + tweet.user.profile_image_url + '" />' +
         '<p class="text"><span class="username"><a href="https://twitter.com/' +
         tweet.user.screen_name + '"target=_blank rel="external">' + 
         tweet.user.screen_name + '</a>:</span> ' + tweet.text + '</p></div>';
-    };
+    },
 
     /**
-     * Handler for retrieving the tweets
-     * @param  {jQuery} el the target element
-     * @param  {jQuery.event} event generated
+     * Get the last fetched tweets
+     * @return {Array} Last fetched tweets
      */
-    button.on('click', function (el, event) {
+    getLastTweets: function () {
+      return this.tweets;
+    }
+  });
 
-      // Get the user that we want the timeline
-      var userName = $.trim(user.val());
-
-      // Dont do nothing if there's not a user defined
-      if (!userName) return false;
-
-      // Shows the loading indicator
-      container.append(notification);
-
-      // success callback
-      getTweets(userName).success(function (data) {
-        self.tweets = data;
-        renderTweets(data);
-
-      // error callback
-      }).error(function (jqXHR, textStatus) {
-        console.log(textStatus);
-        tweetBox.html('Something went wrong, please try again');
-
-      // always callback
-      }).always(function () {
-        notification.detach();
-      });  
-    });
-
-    /**
-     * API
-     */
-    return {
-      getLastTweets: function (user) {
-        return this.tweets;
-      },
-      destroy: function () {
-        button.off('click');
-      }
-    };
-  };
-})(jQuery, window);
+})(jQuery, can, window);
