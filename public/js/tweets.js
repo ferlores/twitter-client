@@ -13,8 +13,11 @@
   var getTweets = function (user) {
     // Get the tweets from the server
     return $.ajax({
-      url: '/api/tweets/' + user,   // server endpoint to get the tweets 
-      contentType: 'json'           // tells jQuery that we expect a json
+      url: 'https://api.twitter.com/1/statuses/user_timeline.json?' +
+        'include_entities=true&include_rts=true' +
+        '&screen_name=' + user,    // server endpoint to get the tweets
+      contentType: 'jsonp',          // tells jQuery that we expect a json
+      dataType: 'jsonp'          // tells jQuery that we expect a json
     });  
   }
 
